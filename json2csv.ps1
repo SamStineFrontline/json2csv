@@ -78,8 +78,60 @@ Function GetTopLevelFieldsAsObject($item) {
         Message = $item.message -replace ",", "";
     }
 }
+
+Function GetJsonFieldPropertiesAsObject($item, $topLevelItemName) {
+    $properties = [PSCustomObject]@{}
+
+    $item `
+    | ForEach-Object {
+        [bool] $propertyCreatedInThisCall = 0
+        
+        $_.PSObject.Properties | ForEach-Object {
+            $propertyToAdd = [PSCustomObject]@{}
+            if ($_.Name -eq '$Value' -or $_.Name -eq '$Length'){
+                $propertyToAdd = [PSCustomObject]@{
+                    MemberType = $_.MemberType;
+                    Name = "$($topLevelItemName).$($_.Name)";
+                    Value = $_.Value;
+                }
+
+                $propertyCreatedInThisCall = 1
+            } else {
+                $propertyToAdd = GetJsonFieldPropertiesAsObject -item $_.Value -topLevelItemName "$($topLevelItemName).$($_.Name)"
+            }
+            
+            if ($propertyCreatedInThisCall){
+                $properties | Add-Member -MemberType $propertyToAdd.MemberType -Name $propertyToAdd.Name  -Value $propertyToAdd.Value
+            } elseif (! $null -eq $propertyToAdd.PSobject.Properties.Name) {
+                $propertyToAdd.PSObject.Properties | ForEach-Object {
+                    $properties | Add-Member -MemberType $_.MemberType -Name $_.Name  -Value $_.Value
+                }
+            }
+        }
+    }
+
+    return $properties;
+}
+
+Function GetNestedFieldPropertiesAsObject($item){
+    $queryStringProperties = @{}
+    $cookieProperties = @{}
+    
+    if (! $null -eq $item.QueryString){
+        $queryStringProperties =GetJsonFieldPropertiesAsObject -item ($item | Select-Object -ExpandProperty QueryString) -topLevelItemName "QueryString"
+    }
+
+    if (! $null -eq $item.Cookies) {
+        $cookieProperties = GetJsonFieldPropertiesAsObject -item ($item | Select-Object -ExpandProperty Cookies) -topLevelItemName "Cookies"
+    }
+
+    $properties = Combine-Objects -Object1 $queryStringProperties -Object2 $cookieProperties
+
+    return $properties
+}
+
 Function GetNestedFieldsAsObject($item) {
-   return $item | Select-Object -ExpandProperty fields
+   return GetNestedFieldPropertiesAsObject -item ($item | Select-Object -ExpandProperty fields)
 }
 
 Get-Content logs.json `
