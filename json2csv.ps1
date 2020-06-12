@@ -127,6 +127,12 @@ Function GetNestedFieldPropertiesAsObject($item){
 
     $properties = Combine-Objects -Object1 $queryStringProperties -Object2 $cookieProperties
 
+    $item.PSObject.Properties | ForEach-Object {
+        if (!($_.Name -eq "QueryString" -or $_.Name -eq "Cookies")) {
+            $properties | Add-Member -MemberType $_.MemberType -Name $_.Name  -Value $_.Value
+        }
+    }
+
     return $properties
 }
 
