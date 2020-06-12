@@ -140,6 +140,16 @@ Function GetNestedFieldsAsObject($item) {
    return GetNestedFieldPropertiesAsObject -item ($item | Select-Object -ExpandProperty fields)
 }
 
+Function GetJsonFromREST() {
+    $url = "http:/foo.com/bar"
+    $body = Get-Content request.json
+    $headers = @{"Content-Type" = "application/json"}
+
+    Invoke-RestMethod -Method 'Post' -Uri $url -Headers $headers -Body $body -Outfile logs.json
+}
+
+GetJsonFromREST
+
 Get-Content logs.json `
     | ConvertFrom-Json `
     | Select-Object -ExpandProperty hits `
