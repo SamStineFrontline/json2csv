@@ -113,31 +113,29 @@ Function GetJsonFieldPropertiesAsObject($item, $topLevelItemName) {
     return $properties;
 }
 
-Function GetNestedFieldPropertiesAsObject($item){
+Function GetNestedFieldsAsObject($item) {
+    $fields = $item | Select-Object -ExpandProperty fields
+    
     $queryStringProperties = @{}
     $cookieProperties = @{}
     
-    if (! $null -eq $item.QueryString){
-        $queryStringProperties =GetJsonFieldPropertiesAsObject -item ($item | Select-Object -ExpandProperty QueryString) -topLevelItemName "QueryString"
+    if (! $null -eq $fields.QueryString){
+        $queryStringProperties = GetJsonFieldPropertiesAsObject -item ($fields | Select-Object -ExpandProperty QueryString) -topLevelItemName "QueryString"
     }
 
-    if (! $null -eq $item.Cookies) {
-        $cookieProperties = GetJsonFieldPropertiesAsObject -item ($item | Select-Object -ExpandProperty Cookies) -topLevelItemName "Cookies"
+    if (! $null -eq $fields.Cookies) {
+        $cookieProperties = GetJsonFieldPropertiesAsObject -item ($fields | Select-Object -ExpandProperty Cookies) -topLevelItemName "Cookies"
     }
 
     $properties = Combine-Objects -Object1 $queryStringProperties -Object2 $cookieProperties
 
-    $item.PSObject.Properties | ForEach-Object {
+    $fields.PSObject.Properties | ForEach-Object {
         if (!($_.Name -eq "QueryString" -or $_.Name -eq "Cookies")) {
             $properties | Add-Member -MemberType $_.MemberType -Name $_.Name  -Value $_.Value
         }
     }
 
     return $properties
-}
-
-Function GetNestedFieldsAsObject($item) {
-   return GetNestedFieldPropertiesAsObject -item ($item | Select-Object -ExpandProperty fields)
 }
 
 Function GetJsonFromREST($resultsOffset, $resultsPerRequest) {
