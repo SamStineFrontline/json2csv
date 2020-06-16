@@ -121,12 +121,20 @@ Function GetNestedFieldsAsObject($item) {
     $baseProperties = [PSCustomObject]@{}
 
     $fields.PSObject.Properties | ForEach-Object {
-        if ($_.Name -eq "QueryString") {
-            $queryStringProperties = GetJsonFieldPropertiesAsObject -item ($_ | Select-Object -ExpandProperty Value) -topLevelItemName "QueryString"
-        } elseif ($_.Name -eq "Cookies") {
-            $cookieProperties = GetJsonFieldPropertiesAsObject -item ($_ | Select-Object -ExpandProperty Value) -topLevelItemName "Cookies"
-        } else {
-            $baseProperties | Add-Member -MemberType $_.MemberType -Name $_.Name  -Value $_.Value
+        $currentProperty = $_
+
+        switch ($currentProperty.Name) {
+            "QueryString" {
+                $queryStringProperties =  GetJsonFieldPropertiesAsObject -item ($currentProperty | Select-Object -ExpandProperty Value) -topLevelItemName "QueryString";
+                break;
+            }
+            "Cookies" {
+                $cookieProperties = GetJsonFieldPropertiesAsObject -item ($currentProperty | Select-Object -ExpandProperty Value) -topLevelItemName "Cookies";
+                break;
+            }
+            Default {
+                $baseProperties | Add-Member -MemberType $currentProperty.MemberType -Name $currentProperty.Name  -Value $currentProperty.Value
+            }
         }
     }
 
