@@ -140,21 +140,39 @@ Function GetNestedFieldsAsObject($item) {
    return GetNestedFieldPropertiesAsObject -item ($item | Select-Object -ExpandProperty fields)
 }
 
-Function GetJsonFromREST() {
+Function GetJsonFromREST($resultsOffset, $resultsPerRequest) {
     $url = "http:/foo.com/bar"
     $body = Get-Content request.json
+    $body = $body -replace '#resultsOffset', $resultsOffset
+    $body = $body -replace '#resultsPerRequest', $resultsPerRequest
     $headers = @{"Content-Type" = "application/json"}
 
     Invoke-RestMethod -Method 'Post' -Uri $url -Headers $headers -Body $body -Outfile logs.json
 }
 
-GetJsonFromREST
 
-Get-Content logs.json `
-    | ConvertFrom-Json `
-    | Select-Object -ExpandProperty hits `
-    | Select-Object -ExpandProperty hits  `
-    | Select-Object -ExpandProperty "_source"  `
-    | ForEach-Object { Combine-Objects -Object1 (GetTopLevelFieldsAsObject -item $_) -Object2 (GetNestedFieldsAsObject -item $_) } `
-    | ConvertTo-Csv -NoTypeInformation > logs.csv
+$results = @()
+$resultsOffset = 0
+$resultsPerRequest = 10
+[bool] $allResultsFound = 0
+
+Do {
+    GetJsonFromREST -resultsOffset $resultsOffset -resultsPerRequest $resultsPerRequest
+    $hits = Get-Content logs.json `
+        | ConvertFrom-Json `
+        | Select-Object -ExpandProperty hits `
+        | Select-Object -ExpandProperty hits
+
+    if (! $hits -eq ""){
+        $results += $hits `
+        | Select-Object -ExpandProperty "_source"  `
+        | ForEach-Object { Combine-Objects -Object1 (GetTopLevelFieldsAsObject -item $_) -Object2 (GetNestedFieldsAsObject -item $_) }
+    } else {
+        $allResultsFound = 1
+    }
+
+    $resultsOffset += $resultsPerRequest
+} While ($resultsOffset -lt 30)
+
+$results | ConvertTo-Csv -NoTypeInformation > logs.csv
 
