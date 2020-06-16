@@ -154,7 +154,6 @@ Function GetJsonFromREST($resultsOffset, $resultsPerRequest) {
     Invoke-RestMethod -Method 'Post' -Uri $url -Headers $headers -Body $body -Outfile logs.json
 }
 
-
 $results = @()
 $resultsOffset = 0
 $resultsPerRequest = 10
@@ -178,5 +177,5 @@ Do {
     $resultsOffset += $resultsPerRequest
 } While ($resultsOffset -lt 30)
 
-$results | ConvertTo-Csv -NoTypeInformation > logs.csv
+$results | Export-Csv -Path .\logs.csv -NoTypeInformation
 
