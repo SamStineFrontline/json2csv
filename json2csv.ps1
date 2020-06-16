@@ -85,10 +85,12 @@ Function GetJsonFieldPropertiesAsObject($item, $topLevelItemName) {
     $item `
     | ForEach-Object {
         [bool] $propertyCreatedInThisCall = 0
-        
+
         $_.PSObject.Properties | ForEach-Object {
             $propertyToAdd = [PSCustomObject]@{}
-            if ($_.Name -eq '$Value' -or $_.Name -eq '$Length'){
+            if ($_.TypeNameOfValue -eq "System.Management.Automation.PSCustomObject") {
+                $propertyToAdd = GetJsonFieldPropertiesAsObject -item $_.Value -topLevelItemName "$($topLevelItemName).$($_.Name)"
+            } else {
                 $propertyToAdd = [PSCustomObject]@{
                     MemberType = $_.MemberType;
                     Name = "$($topLevelItemName).$($_.Name)";
@@ -96,10 +98,8 @@ Function GetJsonFieldPropertiesAsObject($item, $topLevelItemName) {
                 }
 
                 $propertyCreatedInThisCall = 1
-            } else {
-                $propertyToAdd = GetJsonFieldPropertiesAsObject -item $_.Value -topLevelItemName "$($topLevelItemName).$($_.Name)"
             }
-            
+
             if ($propertyCreatedInThisCall){
                 $properties | Add-Member -MemberType $propertyToAdd.MemberType -Name $propertyToAdd.Name  -Value $propertyToAdd.Value
             } elseif (! $null -eq $propertyToAdd.PSobject.Properties.Name) {
