@@ -126,6 +126,7 @@ Function GetNestedFieldsAsObject($item) {
 
     $queryStringProperties = @{}
     $cookieProperties = @{}
+    $securityBlockProperties = @{}
     $baseProperties = [PSCustomObject]@{}
 
     $fields.PSObject.Properties | ForEach-Object {
@@ -140,6 +141,10 @@ Function GetNestedFieldsAsObject($item) {
                 $cookieProperties = GetJsonFieldPropertiesAsObject -item ($currentProperty | Select-Object -ExpandProperty Value) -topLevelItemName "Cookies";
                 break;
             }
+            "SecurityBlock" {
+                $securityBlockProperties = GetJsonFieldPropertiesAsObject -item ($currentProperty | Select-Object -ExpandProperty Value) -topLevelItemName "SecurityBlock";
+                break;
+            }
             Default {
                 if (! $script:allFields.Contains($currentProperty.Name)) {
                     $script:allFields += $currentProperty.Name
@@ -151,6 +156,11 @@ Function GetNestedFieldsAsObject($item) {
     }
 
     $nestedProperties = Combine-Objects -Object1 $queryStringProperties -Object2 $cookieProperties
+
+    if ($securityBlockProperties.PSObject.Properties.Name.Count -le 3) {
+        $nestedProperties = Combine-Objects -Object1 [PSCustomObject]$nestedProperties -Object2 $securityBlockProperties
+    }
+
     $combinedProperties = Combine-Objects -Object1 $baseProperties -Object2 $nestedProperties
 
     return $combinedProperties
