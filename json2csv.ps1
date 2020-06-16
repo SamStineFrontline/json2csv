@@ -201,7 +201,7 @@ Do {
 
 $script:allFields.ForEach(
     {
-        if (! $results[0].PSObject.Properties.Name.Contains($_)){
+        if (! ($results[0].PSObject.Properties.Name -contains $_) ){
             $results[0] | Add-Member -MemberType NoteProperty -Name $_  -Value $null
         }
     }
