@@ -86,11 +86,13 @@ Function GetJsonFieldPropertiesAsObject($item, $topLevelItemName) {
 
     $item `
     | ForEach-Object {
-        [bool] $propertyCreatedInThisCall = 0
-
         $_.PSObject.Properties | ForEach-Object {
             $propertyToAdd = [PSCustomObject]@{}
             $fieldName = "$($topLevelItemName).$($_.Name)"
+
+            if ($topLevelItemName -eq ""){
+                $fieldName = $_.Name
+            }
 
             if ($_.TypeNameOfValue -eq "System.Management.Automation.PSCustomObject") {
                 $propertyToAdd = GetJsonFieldPropertiesAsObject -item $_.Value -topLevelItemName $fieldName
@@ -100,70 +102,27 @@ Function GetJsonFieldPropertiesAsObject($item, $topLevelItemName) {
                     Name = $fieldName;
                     Value = $_.Value;
                 }
-
-                $propertyCreatedInThisCall = 1
-
-                if (! $script:allFields.Contains($fieldName)) {
-                    $script:allFields += $fieldName
-                }
             }
 
-            if ($propertyCreatedInThisCall){
-                $properties | Add-Member -MemberType $propertyToAdd.MemberType -Name $propertyToAdd.Name  -Value $propertyToAdd.Value
-            } elseif (! $null -eq $propertyToAdd.PSobject.Properties.Name) {
+            if ($null -eq $propertyToAdd.MemberType){
                 $propertyToAdd.PSObject.Properties | ForEach-Object {
                     $properties | Add-Member -MemberType $_.MemberType -Name $_.Name  -Value $_.Value
+
+                    if (! ($script:allFields -contains $_.Name)) {
+                        $script:allFields += $_.Name
+                    }
+                }
+            } else {
+                $properties | Add-Member -MemberType $propertyToAdd.MemberType -Name $propertyToAdd.Name  -Value $propertyToAdd.Value
+
+                if (! ($script:allFields -contains $propertyToAdd.Name)) {
+                    $script:allFields += $propertyToAdd.Name
                 }
             }
         }
     }
 
     return $properties;
-}
-
-Function GetNestedFieldsAsObject($item) {
-    $fields = $item | Select-Object -ExpandProperty fields
-
-    $queryStringProperties = @{}
-    $cookieProperties = @{}
-    $securityBlockProperties = @{}
-    $baseProperties = [PSCustomObject]@{}
-
-    $fields.PSObject.Properties | ForEach-Object {
-        $currentProperty = $_
-
-        switch ($currentProperty.Name) {
-            "QueryString" {
-                $queryStringProperties =  GetJsonFieldPropertiesAsObject -item ($currentProperty | Select-Object -ExpandProperty Value) -topLevelItemName "QueryString";
-                break;
-            }
-            "Cookies" {
-                $cookieProperties = GetJsonFieldPropertiesAsObject -item ($currentProperty | Select-Object -ExpandProperty Value) -topLevelItemName "Cookies";
-                break;
-            }
-            "SecurityBlock" {
-                $securityBlockProperties = GetJsonFieldPropertiesAsObject -item ($currentProperty | Select-Object -ExpandProperty Value) -topLevelItemName "SecurityBlock";
-                break;
-            }
-            Default {
-                if (! $script:allFields.Contains($currentProperty.Name)) {
-                    $script:allFields += $currentProperty.Name
-                }
-
-                $baseProperties | Add-Member -MemberType $currentProperty.MemberType -Name $currentProperty.Name  -Value $currentProperty.Value
-            }
-        }
-    }
-
-    $nestedProperties = Combine-Objects -Object1 $queryStringProperties -Object2 $cookieProperties
-
-    if ($securityBlockProperties.PSObject.Properties.Name.Count -le 3) {
-        $nestedProperties = Combine-Objects -Object1 [PSCustomObject]$nestedProperties -Object2 $securityBlockProperties
-    }
-
-    $combinedProperties = Combine-Objects -Object1 $baseProperties -Object2 $nestedProperties
-
-    return $combinedProperties
 }
 
 Function GetJsonFromREST($resultsOffset, $resultsPerRequest) {
@@ -191,7 +150,7 @@ Do {
     if (! $hits -eq ""){
         $results += $hits `
         | Select-Object -ExpandProperty "_source"  `
-        | ForEach-Object { Combine-Objects -Object1 (GetTopLevelFieldsAsObject -item $_) -Object2 (GetNestedFieldsAsObject -item $_) }
+        | ForEach-Object { Combine-Objects -Object1 (GetTopLevelFieldsAsObject -item $_) -Object2 (GetJsonFieldPropertiesAsObject -item ($_ | Select-Object -ExpandProperty fields) -topLevelItemName "") }
     } else {
         $allResultsFound = 1
     }
