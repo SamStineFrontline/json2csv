@@ -79,6 +79,8 @@ Function GetTopLevelFieldsAsObject($item) {
     }
 }
 
+$script:allFields = @()
+
 Function GetJsonFieldPropertiesAsObject($item, $topLevelItemName) {
     $properties = [PSCustomObject]@{}
 
@@ -88,16 +90,22 @@ Function GetJsonFieldPropertiesAsObject($item, $topLevelItemName) {
 
         $_.PSObject.Properties | ForEach-Object {
             $propertyToAdd = [PSCustomObject]@{}
+            $fieldName = "$($topLevelItemName).$($_.Name)"
+
             if ($_.TypeNameOfValue -eq "System.Management.Automation.PSCustomObject") {
-                $propertyToAdd = GetJsonFieldPropertiesAsObject -item $_.Value -topLevelItemName "$($topLevelItemName).$($_.Name)"
+                $propertyToAdd = GetJsonFieldPropertiesAsObject -item $_.Value -topLevelItemName $fieldName
             } else {
                 $propertyToAdd = [PSCustomObject]@{
                     MemberType = $_.MemberType;
-                    Name = "$($topLevelItemName).$($_.Name)";
+                    Name = $fieldName;
                     Value = $_.Value;
                 }
 
                 $propertyCreatedInThisCall = 1
+
+                if (! $script:allFields.Contains($fieldName)) {
+                    $script:allFields += $fieldName
+                }
             }
 
             if ($propertyCreatedInThisCall){
@@ -133,6 +141,10 @@ Function GetNestedFieldsAsObject($item) {
                 break;
             }
             Default {
+                if (! $script:allFields.Contains($currentProperty.Name)) {
+                    $script:allFields += $currentProperty.Name
+                }
+
                 $baseProperties | Add-Member -MemberType $currentProperty.MemberType -Name $currentProperty.Name  -Value $currentProperty.Value
             }
         }
@@ -176,6 +188,14 @@ Do {
 
     $resultsOffset += $resultsPerRequest
 } While ($resultsOffset -lt 30)
+
+$script:allFields.ForEach(
+    {
+        if (! $results[0].PSObject.Properties.Name.Contains($_)){
+            $results[0] | Add-Member -MemberType NoteProperty -Name $_  -Value $null
+        }
+    }
+)
 
 $results | Export-Csv -Path .\logs.csv -NoTypeInformation
 
