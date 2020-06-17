@@ -126,38 +126,43 @@ Function GetJsonFieldPropertiesAsObject($item, $topLevelItemName) {
     return $properties;
 }
 
-Function GetJsonFromREST($resultsOffset, $resultsPerRequest) {
+Function GetJsonFromREST($resultsPerRequest, $minResultDateInclusive, $maxResultDateNonInclusive) {
     $url = "http:/foo.com/bar"
     $body = Get-Content request.json
-    $body = $body -replace '#resultsOffset', $resultsOffset
     $body = $body -replace '#resultsPerRequest', $resultsPerRequest
+    $body = $body -replace '#minResultDateInclusive', """$($minResultDateInclusive)"""
+    $body = $body -replace '#maxResultDateNonInclusive', """$($maxResultDateNonInclusive)"""
     $headers = @{"Content-Type" = "application/json"}
 
     Invoke-RestMethod -Method 'Post' -Uri $url -Headers $headers -Body $body -Outfile logs.json
 }
 
 $results = @()
-$resultsOffset = 0
-$resultsPerRequest = 10
-[bool] $allResultsFound = 0
+$resultsPerRequest = 10000
+[bool] $resultsFound = 0
+$minResultDateInclusive = Get-Date -Date "1970-01-01 00:00:00Z"
+$maxResultDateNonInclusive = Get-Date -Date "1970-01-01 00:01:00Z"
 
 Do {
-    GetJsonFromREST -resultsOffset $resultsOffset -resultsPerRequest $resultsPerRequest
+    GetJsonFromREST -resultsPerRequest $resultsPerRequest -minResultDateInclusive ($minResultDateInclusive.ToUniversalTime().ToString("o")) -maxResultDateNonInclusive ($maxResultDateNonInclusive.ToUniversalTime().ToString("o"))
     $hits = Get-Content logs.json `
         | ConvertFrom-Json `
         | Select-Object -ExpandProperty hits `
         | Select-Object -ExpandProperty hits
 
     if (! $hits -eq ""){
+        $resultsFound = 1
+
         $results += $hits `
         | Select-Object -ExpandProperty "_source"  `
         | ForEach-Object { Combine-Objects -Object1 (GetTopLevelFieldsAsObject -item $_) -Object2 (GetJsonFieldPropertiesAsObject -item ($_ | Select-Object -ExpandProperty fields) -topLevelItemName "") }
-    } else {
-        $allResultsFound = 1
-    }
 
-    $resultsOffset += $resultsPerRequest
-} While ($resultsOffset -lt 30)
+        $lastResult = $results[$results.Length - 1]
+        $maxResultDateNonInclusive = (Get-Date -Date $lastResult.Timestamp).ToUniversalTime()
+    } else {
+        $resultsFound = 0
+    }
+} While ($resultsFound -and ($minResultDateInclusive -lt $maxResultDateNonInclusive))
 
 $script:allFields.ForEach(
     {
@@ -168,4 +173,3 @@ $script:allFields.ForEach(
 )
 
 $results | Export-Csv -Path .\logs.csv -NoTypeInformation
-
