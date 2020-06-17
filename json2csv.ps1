@@ -83,41 +83,42 @@ $script:allFields = @()
 
 Function GetJsonFieldPropertiesAsObject($item, $topLevelItemName) {
     $properties = [PSCustomObject]@{}
+    $fields = $item.PSObject.Properties
 
-    $item `
-    | ForEach-Object {
-        $_.PSObject.Properties | ForEach-Object {
-            $propertyToAdd = [PSCustomObject]@{}
-            $fieldName = "$($topLevelItemName).$($_.Name)"
+    foreach ($field in $fields){
+        $propertyToAdd = [PSCustomObject]@{}
+        $fieldName = "$($topLevelItemName).$($field.Name)"
 
-            if ($topLevelItemName -eq ""){
-                $fieldName = $_.Name
+        if ($topLevelItemName -eq ""){
+            $fieldName = $field.Name
+        }
+
+        if ($field.TypeNameOfValue -eq "System.Management.Automation.PSCustomObject") {
+            $propertyToAdd = GetJsonFieldPropertiesAsObject -item $field.Value -topLevelItemName $fieldName
+        } else {
+            $propertyToAdd = [PSCustomObject]@{
+                MemberType = $field.MemberType;
+                Name = $fieldName;
+                Value = $field.Value;
             }
+        }
 
-            if ($_.TypeNameOfValue -eq "System.Management.Automation.PSCustomObject") {
-                $propertyToAdd = GetJsonFieldPropertiesAsObject -item $_.Value -topLevelItemName $fieldName
-            } else {
-                $propertyToAdd = [PSCustomObject]@{
-                    MemberType = $_.MemberType;
-                    Name = $fieldName;
-                    Value = $_.Value;
+        if ($null -eq $propertyToAdd.MemberType){
+            $propertiesToAdd = $propertyToAdd.PSObject.Properties
+
+            foreach ($property in $propertiesToAdd){
+                $properties | Add-Member -MemberType $field.MemberType -Name $property.Name  -Value $property.Value
+
+                if (! ($script:allFields -contains $property.Name)) {
+                    $script:allFields += $property.Name
                 }
+
             }
+        } else {
+            $properties | Add-Member -MemberType $propertyToAdd.MemberType -Name $propertyToAdd.Name  -Value $propertyToAdd.Value
 
-            if ($null -eq $propertyToAdd.MemberType){
-                $propertyToAdd.PSObject.Properties | ForEach-Object {
-                    $properties | Add-Member -MemberType $_.MemberType -Name $_.Name  -Value $_.Value
-
-                    if (! ($script:allFields -contains $_.Name)) {
-                        $script:allFields += $_.Name
-                    }
-                }
-            } else {
-                $properties | Add-Member -MemberType $propertyToAdd.MemberType -Name $propertyToAdd.Name  -Value $propertyToAdd.Value
-
-                if (! ($script:allFields -contains $propertyToAdd.Name)) {
-                    $script:allFields += $propertyToAdd.Name
-                }
+            if (! ($script:allFields -contains $propertyToAdd.Name)) {
+                $script:allFields += $propertyToAdd.Name
             }
         }
     }
