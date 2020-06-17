@@ -79,51 +79,51 @@ Function GetTopLevelFieldsAsObject($item) {
     }
 }
 
-$script:allFields = @()
+$script:allFieldNames = @()
 
 Function GetJsonFieldPropertiesAsObject($item, $topLevelItemName) {
-    $properties = [PSCustomObject]@{}
-    $fields = $item.PSObject.Properties
+    $jsonAsObject = [PSCustomObject]@{}
+    $properties = $item.PSObject.Properties
 
-    foreach ($field in $fields){
+    foreach ($property in $properties){
         $propertyToAdd = [PSCustomObject]@{}
-        $fieldName = "$($topLevelItemName).$($field.Name)"
+        $propertyName = "$($topLevelItemName).$($property.Name)"
 
         if ($topLevelItemName -eq ""){
-            $fieldName = $field.Name
+            $propertyName = $property.Name
         }
 
-        if ($field.TypeNameOfValue -eq "System.Management.Automation.PSCustomObject") {
-            $propertyToAdd = GetJsonFieldPropertiesAsObject -item $field.Value -topLevelItemName $fieldName
+        if ($property.TypeNameOfValue -eq "System.Management.Automation.PSCustomObject") {
+            $propertyToAdd = GetJsonFieldPropertiesAsObject -item $property.Value -topLevelItemName $propertyName
         } else {
             $propertyToAdd = [PSCustomObject]@{
-                MemberType = $field.MemberType;
-                Name = $fieldName;
-                Value = $field.Value;
+                MemberType = $property.MemberType;
+                Name = $propertyName;
+                Value = $property.Value;
             }
         }
 
         if ($null -eq $propertyToAdd.MemberType){
             $propertiesToAdd = $propertyToAdd.PSObject.Properties
 
-            foreach ($property in $propertiesToAdd){
-                $properties | Add-Member -MemberType $field.MemberType -Name $property.Name  -Value $property.Value
+            foreach ($propertyToAdd in $propertiesToAdd){
+                $jsonAsObject | Add-Member -MemberType $property.MemberType -Name $propertyToAdd.Name  -Value $propertyToAdd.Value
 
-                if (! ($script:allFields -contains $property.Name)) {
-                    $script:allFields += $property.Name
+                if (! ($script:allFieldNames -contains $propertyToAdd.Name)) {
+                    $script:allFieldNames += $propertyToAdd.Name
                 }
 
             }
         } else {
-            $properties | Add-Member -MemberType $propertyToAdd.MemberType -Name $propertyToAdd.Name  -Value $propertyToAdd.Value
+            $jsonAsObject | Add-Member -MemberType $propertyToAdd.MemberType -Name $propertyToAdd.Name  -Value $propertyToAdd.Value
 
-            if (! ($script:allFields -contains $propertyToAdd.Name)) {
-                $script:allFields += $propertyToAdd.Name
+            if (! ($script:allFieldNames -contains $propertyToAdd.Name)) {
+                $script:allFieldNames += $propertyToAdd.Name
             }
         }
     }
 
-    return $properties;
+    return $jsonAsObject;
 }
 
 Function GetJsonFromREST($resultsPerRequest, $minResultDateInclusive, $maxResultDateNonInclusive) {
@@ -164,7 +164,7 @@ Do {
     }
 } While ($resultsFound -and ($minResultDateInclusive -lt $maxResultDateNonInclusive))
 
-$script:allFields.ForEach(
+$script:allFieldNames.ForEach(
     {
         if (! ($results[0].PSObject.Properties.Name -contains $_) ){
             $results[0] | Add-Member -MemberType NoteProperty -Name $_  -Value $null
