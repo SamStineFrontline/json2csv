@@ -130,8 +130,8 @@ Function GetJsonFromREST($resultsPerRequest, $minResultDateInclusive, $maxResult
     $url = "http:/foo.com/bar"
     $body = Get-Content request.json
     $body = $body -replace '#resultsPerRequest', $resultsPerRequest
-    $body = $body -replace '#minResultDateInclusive', """$($minResultDateInclusive)"""
-    $body = $body -replace '#maxResultDateNonInclusive', """$($maxResultDateNonInclusive)"""
+    $body = $body -replace '#minResultDateInclusive', """$($minResultDateInclusive.ToUniversalTime().ToString("s"))"""
+    $body = $body -replace '#maxResultDateNonInclusive', """$($maxResultDateNonInclusive.ToUniversalTime().ToString("s"))"""
     $headers = @{"Content-Type" = "application/json"}
 
     Invoke-RestMethod -Method 'Post' -Uri $url -Headers $headers -Body $body -Outfile logs.json
@@ -144,7 +144,7 @@ $minResultDateInclusive = Get-Date -Date "1970-01-01 00:00:00Z"
 $maxResultDateNonInclusive = Get-Date -Date "1970-01-01 00:01:00Z"
 
 Do {
-    GetJsonFromREST -resultsPerRequest $resultsPerRequest -minResultDateInclusive ($minResultDateInclusive.ToUniversalTime().ToString("o")) -maxResultDateNonInclusive ($maxResultDateNonInclusive.ToUniversalTime().ToString("o"))
+    GetJsonFromREST -resultsPerRequest $resultsPerRequest -minResultDateInclusive $minResultDateInclusive -maxResultDateNonInclusive $maxResultDateNonInclusive
     $hits = Get-Content logs.json `
         | ConvertFrom-Json `
         | Select-Object -ExpandProperty hits `
