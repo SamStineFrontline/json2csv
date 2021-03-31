@@ -142,6 +142,8 @@ $resultsPerRequest = 10000
 [bool] $resultsFound = 0
 $minResultDateInclusive = Get-Date -Date "1970-01-01 00:00:00Z"
 $maxResultDateNonInclusive = Get-Date -Date "1970-01-01 00:01:00Z"
+$fileName = ".\Results\$($minResultDateInclusive.ToString('s'))-$($maxResultDateNonInclusive.AddSeconds(-1).ToString('s')).csv"
+$fileName = $fileName -replace ":", ""
 
 Do {
     GetJsonFromREST -resultsPerRequest $resultsPerRequest -minResultDateInclusive $minResultDateInclusive -maxResultDateNonInclusive $maxResultDateNonInclusive
@@ -172,4 +174,4 @@ $script:allFieldNames.ForEach(
     }
 )
 
-$results | Export-Csv -Path .\logs.csv -NoTypeInformation
+$results | Export-Csv -Path $fileName -NoTypeInformation
